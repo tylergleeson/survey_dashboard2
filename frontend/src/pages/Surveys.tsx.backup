@@ -1,0 +1,413 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  LinearProgress,
+  Alert,
+  Tabs,
+  Tab,
+  TextField,
+  InputAdornment,
+} from '@mui/material';
+import {
+  MonetizationOn,
+  AccessTime,
+  Star,
+  Phone,
+  Search,
+  FilterList,
+} from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
+import { surveyApi } from '../utils/api';
+import { Survey } from '../types';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`survey-tabpanel-${index}`}
+      aria-labelledby={`survey-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+const Surveys: React.FC = () => {
+  const { user } = useAuth();
+  
+  const [surveys, setSurveys] = useState<any[]>([]);
+  const [filteredSurveys, setFilteredSurveys] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSurvey, setSelectedSurvey] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [surveysResponse, categoriesResponse] = await Promise.all([
+          surveyApi.getAvailableSurveys(),
+          surveyApi.getCategories()
+        ]);
+
+        if (surveysResponse.data) {
+          setSurveys(surveysResponse.data);
+          setFilteredSurveys(surveysResponse.data);
+        }
+
+        if (categoriesResponse.data) {
+          setCategories(categoriesResponse.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch surveys:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    let filtered = surveys;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(survey =>
+        survey.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        survey.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(survey => survey.category === selectedCategory);
+    }
+
+    // Filter by tab (tier)
+    if (tabValue === 1) {
+      filtered = filtered.filter(survey => survey.tier_requirements === 'pro' || survey.tier_requirements === 'elite');
+    } else if (tabValue === 2) {
+      filtered = filtered.filter(survey => survey.tier_requirements === 'elite');
+    }
+
+    setFilteredSurveys(filtered);
+  }, [surveys, searchTerm, selectedCategory, tabValue]);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  const handleSurveyClick = (survey: any) => {
+    setSelectedSurvey(survey);
+    setIsDialogOpen(true);
+  };
+
+  const handleStartSurvey = async () => {
+    if (!selectedSurvey) return;
+
+    setIsStarting(true);
+    try {
+      const response = await surveyApi.startSurvey(selectedSurvey.survey_id);
+      
+      if (response.data) {
+        // In a real implementation, this would initiate the actual phone call
+        // For now, we'll show a success message
+        alert(`Survey call initiated! Call ID: ${response.data.callId}`);
+        setIsDialogOpen(false);
+        
+        // Refresh surveys to remove the started one
+        const surveysResponse = await surveyApi.getAvailableSurveys();
+        if (surveysResponse.data) {
+          setSurveys(surveysResponse.data);
+        }
+      }
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Failed to start survey');
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case 'elite': return 'secondary';
+      case 'pro': return 'primary';
+      default: return 'default';
+    }
+  };
+
+  const canAccessTier = (surveyTier: string) => {
+    const tierLevels = { basic: 1, pro: 2, elite: 3 };
+    const userLevel = tierLevels[user?.tier as keyof typeof tierLevels] || 1;
+    const requiredLevel = tierLevels[surveyTier as keyof typeof tierLevels] || 1;
+    return userLevel >= requiredLevel;
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ width: '100%', mt: 4 }}>
+        <LinearProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Available Surveys
+      </Typography>
+
+      {/* Search and Filter */}
+      <Box mb={3}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              placeholder="Search surveys..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              select
+              fullWidth
+              label="Category"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              SelectProps={{ native: true }}
+            >
+              <option value="all">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat.category} value={cat.category}>
+                  {cat.category} ({cat.survey_count})
+                </option>
+              ))}
+            </TextField>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Tier Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="All Surveys" />
+          <Tab label="Pro Surveys" disabled={!canAccessTier('pro')} />
+          <Tab label="Elite Surveys" disabled={!canAccessTier('elite')} />
+        </Tabs>
+      </Box>
+
+      {/* Surveys Grid */}
+      <TabPanel value={tabValue} index={tabValue}>
+        {filteredSurveys.length === 0 ? (
+          <Alert severity="info">
+            No surveys available matching your criteria. Try adjusting your filters or check back later.
+          </Alert>
+        ) : (
+          <Grid container spacing={3}>
+            {filteredSurveys.map((survey) => (
+              <Grid item xs={12} md={6} lg={4} key={survey.survey_id}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: 4,
+                    },
+                  }}
+                  onClick={() => handleSurveyClick(survey)}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                      <Typography variant="h6" component="h2" sx={{ flexGrow: 1 }}>
+                        {survey.title}
+                      </Typography>
+                      <Chip
+                        label={survey.tier_requirements}
+                        color={getTierColor(survey.tier_requirements)}
+                        size="small"
+                      />
+                    </Box>
+
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                      {survey.category}
+                    </Typography>
+
+                    <Box display="flex" alignItems="center" gap={2} mb={2}>
+                      <Box display="flex" alignItems="center">
+                        <MonetizationOn fontSize="small" color="primary" />
+                        <Typography variant="body2" sx={{ ml: 0.5 }}>
+                          ${survey.potential_earnings?.total_potential?.toFixed(2) || survey.base_reward}
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center">
+                        <AccessTime fontSize="small" color="action" />
+                        <Typography variant="body2" sx={{ ml: 0.5 }}>
+                          {survey.estimated_duration} min
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {survey.potential_earnings?.demographic_bonus > 0 && (
+                      <Box mb={2}>
+                        <Chip
+                          label={`+$${survey.potential_earnings.demographic_bonus.toFixed(2)} demographic bonus`}
+                          color="success"
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Box>
+                    )}
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      startIcon={<Phone />}
+                      disabled={!canAccessTier(survey.tier_requirements)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSurveyClick(survey);
+                      }}
+                    >
+                      {canAccessTier(survey.tier_requirements) ? 'Start Survey' : 'Upgrade Required'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </TabPanel>
+
+      {/* Survey Details Dialog */}
+      <Dialog
+        open={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        {selectedSurvey && (
+          <>
+            <DialogTitle>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="h6">{selectedSurvey.title}</Typography>
+                <Chip
+                  label={selectedSurvey.tier_requirements}
+                  color={getTierColor(selectedSurvey.tier_requirements)}
+                />
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Box mb={3}>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Box display="flex" alignItems="center">
+                      <MonetizationOn color="primary" sx={{ mr: 1 }} />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Potential Earnings
+                        </Typography>
+                        <Typography variant="h6">
+                          ${selectedSurvey.potential_earnings?.total_potential?.toFixed(2) || selectedSurvey.base_reward}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box display="flex" alignItems="center">
+                      <AccessTime color="action" sx={{ mr: 1 }} />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Duration
+                        </Typography>
+                        <Typography variant="h6">
+                          {selectedSurvey.estimated_duration} minutes
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {selectedSurvey.potential_earnings?.demographic_bonus > 0 && (
+                <Alert severity="success" sx={{ mb: 3 }}>
+                  You qualify for a ${selectedSurvey.potential_earnings.demographic_bonus.toFixed(2)} demographic bonus!
+                </Alert>
+              )}
+
+              <Typography variant="subtitle1" gutterBottom>
+                Survey Questions Preview:
+              </Typography>
+              <Box sx={{ pl: 2 }}>
+                {selectedSurvey.questions?.slice(0, 2).map((q: any, index: number) => (
+                  <Typography key={index} variant="body2" paragraph>
+                    {index + 1}. {q.question}
+                  </Typography>
+                ))}
+                {selectedSurvey.questions?.length > 2 && (
+                  <Typography variant="body2" color="text.secondary">
+                    ... and {selectedSurvey.questions.length - 2} more questions
+                  </Typography>
+                )}
+              </Box>
+
+              <Alert severity="info" sx={{ mt: 3 }}>
+                You will receive a phone call to answer these questions. Make sure you're in a quiet environment with good reception.
+              </Alert>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleStartSurvey}
+                disabled={isStarting || !canAccessTier(selectedSurvey.tier_requirements)}
+                startIcon={<Phone />}
+              >
+                {isStarting ? 'Starting...' : 'Start Survey Call'}
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+    </Container>
+  );
+};
+
+export default Surveys;

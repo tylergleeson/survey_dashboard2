@@ -1,0 +1,430 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Button,
+  TextField,
+  Avatar,
+  Chip,
+  Divider,
+  LinearProgress,
+  Alert,
+  Tab,
+  Tabs,
+} from '@mui/material';
+import {
+  AccountCircle,
+  Edit,
+  Star,
+  TrendingUp,
+  Phone,
+  LocationOn,
+  Work,
+  Save,
+  Cancel,
+} from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
+import { userApi } from '../utils/api';
+import { User, Call } from '../types';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`profile-tabpanel-${index}`}
+      aria-labelledby={`profile-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+const Profile: React.FC = () => {
+  const { user, login } = useAuth();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    age: user?.age || 0,
+    occupation: user?.occupation || '',
+    location: user?.location || '',
+  });
+  const [earningsHistory, setEarningsHistory] = useState<Call[]>([]);
+  const [tierEligibility, setTierEligibility] = useState<any>(null);
+  const [tabValue, setTabValue] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const [earningsResponse, eligibilityResponse] = await Promise.all([
+          userApi.getEarningsHistory(),
+          userApi.getTierEligibility()
+        ]);
+
+        if (earningsResponse.data) {
+          setEarningsHistory(earningsResponse.data);
+        }
+
+        if (eligibilityResponse.data) {
+          setTierEligibility(eligibilityResponse.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile data:', error);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Reset form to original values
+      setEditForm({
+        age: user?.age || 0,
+        occupation: user?.occupation || '',
+        location: user?.location || '',
+      });
+    }
+    setIsEditing(!isEditing);
+    setUpdateMessage('');
+  };
+
+  const handleFormChange = (field: string, value: string | number) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSaveProfile = async () => {
+    setIsLoading(true);
+    setUpdateMessage('');
+
+    try {
+      const response = await userApi.updateProfile(editForm);
+      
+      if (response.data) {
+        // Update the auth context with new user data
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          login(token, response.data);
+        }
+        
+        setIsEditing(false);
+        setUpdateMessage('Profile updated successfully!');
+      }
+    } catch (error: any) {
+      setUpdateMessage(error.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case 'elite': return 'secondary';
+      case 'pro': return 'primary';
+      default: return 'default';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Grid container spacing={3}>
+        {/* Profile Summary Card */}
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Box display="flex" flexDirection="column" alignItems="center" textAlign="center">
+                <Avatar sx={{ width: 80, height: 80, mb: 2 }}>
+                  <AccountCircle sx={{ fontSize: 60 }} />
+                </Avatar>
+                
+                <Typography variant="h6" gutterBottom>
+                  User {user?.phone_number?.slice(-4)}
+                </Typography>
+                
+                <Chip
+                  label={user?.tier?.toUpperCase()}
+                  color={getTierColor(user?.tier || 'basic')}
+                  sx={{ mb: 2 }}
+                />
+                
+                <Box display="flex" alignItems="center" mb={1}>
+                  <Star color="warning" sx={{ mr: 1 }} />
+                  <Typography variant="body2">
+                    Quality Score: {user?.quality_score?.toFixed(1) || '0.0'}/5.0
+                  </Typography>
+                </Box>
+                
+                <Box display="flex" alignItems="center" mb={1}>
+                  <TrendingUp color="success" sx={{ mr: 1 }} />
+                  <Typography variant="body2">
+                    Total Earnings: {formatCurrency(user?.earnings || 0)}
+                  </Typography>
+                </Box>
+                
+                <Typography variant="caption" color="text.secondary">
+                  Member since {user?.created_at ? formatDate(user.created_at) : 'N/A'}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+          
+          {/* Tier Upgrade Card */}
+          {tierEligibility && user?.tier === 'basic' && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Upgrade Eligibility
+                </Typography>
+                
+                <Box mb={2}>
+                  <Typography variant="body2" gutterBottom>
+                    Pro Tier Progress
+                  </Typography>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(100, (tierEligibility.currentStats.qualityScore / tierEligibility.requirements.pro.qualityScore) * 100)}
+                    sx={{ mb: 1 }}
+                  />
+                  <Typography variant="caption">
+                    Quality: {tierEligibility.currentStats.qualityScore.toFixed(1)}/{tierEligibility.requirements.pro.qualityScore}
+                  </Typography>
+                </Box>
+                
+                <Box mb={2}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(100, (tierEligibility.currentStats.completedSurveys / tierEligibility.requirements.pro.completedSurveys) * 100)}
+                  />
+                  <Typography variant="caption">
+                    Surveys: {tierEligibility.currentStats.completedSurveys}/{tierEligibility.requirements.pro.completedSurveys}
+                  </Typography>
+                </Box>
+                
+                {tierEligibility.proEligible && (
+                  <Button variant="contained" fullWidth size="small">
+                    Upgrade to Pro
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </Grid>
+
+        {/* Main Content */}
+        <Grid item xs={12} md={8}>
+          <Card>
+            <CardContent>
+              {updateMessage && (
+                <Alert severity={updateMessage.includes('success') ? 'success' : 'error'} sx={{ mb: 2 }}>
+                  {updateMessage}
+                </Alert>
+              )}
+              
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs value={tabValue} onChange={handleTabChange}>
+                  <Tab label="Profile Information" />
+                  <Tab label="Earnings History" />
+                </Tabs>
+              </Box>
+
+              <TabPanel value={tabValue} index={0}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Typography variant="h6">
+                    Personal Information
+                  </Typography>
+                  <Button
+                    variant={isEditing ? "outlined" : "contained"}
+                    startIcon={isEditing ? <Cancel /> : <Edit />}
+                    onClick={handleEditToggle}
+                    disabled={isLoading}
+                  >
+                    {isEditing ? 'Cancel' : 'Edit'}
+                  </Button>
+                </Box>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <Box display="flex" alignItems="center" mb={2}>
+                      <Phone sx={{ mr: 2, color: 'text.secondary' }} />
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Phone Number
+                        </Typography>
+                        <Typography variant="body1">
+                          {user?.phone_number || 'N/A'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    {isEditing ? (
+                      <TextField
+                        fullWidth
+                        label="Age"
+                        type="number"
+                        value={editForm.age}
+                        onChange={(e) => handleFormChange('age', parseInt(e.target.value))}
+                        InputProps={{ inputProps: { min: 18, max: 100 } }}
+                      />
+                    ) : (
+                      <Box display="flex" alignItems="center" mb={2}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+                          Age:
+                        </Typography>
+                        <Typography variant="body1">
+                          {user?.age || 'N/A'}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    {isEditing ? (
+                      <TextField
+                        fullWidth
+                        label="Occupation"
+                        value={editForm.occupation}
+                        onChange={(e) => handleFormChange('occupation', e.target.value)}
+                      />
+                    ) : (
+                      <Box display="flex" alignItems="center" mb={2}>
+                        <Work sx={{ mr: 2, color: 'text.secondary' }} />
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Occupation
+                          </Typography>
+                          <Typography variant="body1">
+                            {user?.occupation || 'N/A'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    {isEditing ? (
+                      <TextField
+                        fullWidth
+                        label="Location"
+                        value={editForm.location}
+                        onChange={(e) => handleFormChange('location', e.target.value)}
+                      />
+                    ) : (
+                      <Box display="flex" alignItems="center" mb={2}>
+                        <LocationOn sx={{ mr: 2, color: 'text.secondary' }} />
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            Location
+                          </Typography>
+                          <Typography variant="body1">
+                            {user?.location || 'N/A'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+                  </Grid>
+                </Grid>
+
+                {isEditing && (
+                  <Box mt={3} display="flex" gap={2}>
+                    <Button
+                      variant="contained"
+                      startIcon={<Save />}
+                      onClick={handleSaveProfile}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </Box>
+                )}
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={1}>
+                <Typography variant="h6" gutterBottom>
+                  Recent Earnings
+                </Typography>
+                
+                {earningsHistory.length === 0 ? (
+                  <Typography color="text.secondary">
+                    No earnings history yet. Complete some surveys to see your earnings here!
+                  </Typography>
+                ) : (
+                  <Box>
+                    {earningsHistory.map((call) => (
+                      <Box key={call.call_id}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" py={2}>
+                          <Box>
+                            <Typography variant="subtitle2" fontWeight="medium">
+                              {(call as any).survey_title}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {(call as any).category} • {formatDate(call.completed_at || '')}
+                            </Typography>
+                            {call.quality_scores && (
+                              <Typography variant="body2" color="text.secondary">
+                                Quality: {(
+                                  (call.quality_scores.richness + 
+                                   call.quality_scores.emotion + 
+                                   call.quality_scores.insight + 
+                                   call.quality_scores.clarity) / 4
+                                ).toFixed(1)}/5.0
+                              </Typography>
+                            )}
+                          </Box>
+                          <Typography variant="h6" color="success.main">
+                            {formatCurrency(call.earnings || 0)}
+                          </Typography>
+                        </Box>
+                        <Divider />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </TabPanel>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Container>
+  );
+};
+
+export default Profile;

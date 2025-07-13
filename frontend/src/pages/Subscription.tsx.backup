@@ -1,0 +1,410 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Grid,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Button,
+  Chip,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
+import {
+  Check,
+  Star,
+  TrendingUp,
+  Phone,
+  Support,
+  Speed,
+  BusinessCenter,
+  Diamond,
+  Cancel,
+} from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
+import { subscriptionApi } from '../utils/api';
+
+interface PlanFeature {
+  text: string;
+  included: boolean;
+}
+
+interface SubscriptionPlan {
+  tier: 'basic' | 'pro' | 'elite';
+  name: string;
+  price: number;
+  period: string;
+  description: string;
+  features: PlanFeature[];
+  buttonText: string;
+  buttonColor: 'inherit' | 'primary' | 'secondary';
+  popular?: boolean;
+}
+
+const Subscription: React.FC = () => {
+  const { user } = useAuth();
+  
+  const [subscriptionInfo, setSubscriptionInfo] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const plans: SubscriptionPlan[] = [
+    {
+      tier: 'basic',
+      name: 'Basic',
+      price: 0,
+      period: 'Free',
+      description: 'Perfect for getting started with survey earnings',
+      features: [
+        { text: '1-2 surveys per week', included: true },
+        { text: '$1-3 per survey', included: true },
+        { text: '$25 minimum payout', included: true },
+        { text: 'Standard demographics', included: true },
+        { text: 'Basic customer support', included: true },
+        { text: 'Professional surveys', included: false },
+        { text: 'Instant payouts', included: false },
+        { text: 'Demographic bonuses', included: false },
+      ],
+      buttonText: user?.tier === 'basic' ? 'Current Plan' : 'Downgrade',
+      buttonColor: 'inherit',
+    },
+    {
+      tier: 'pro',
+      name: 'Pro',
+      price: 19,
+      period: 'month',
+      description: 'Unlock higher-paying professional surveys',
+      features: [
+        { text: '5-10 surveys per week', included: true },
+        { text: '$5-15 per survey', included: true },
+        { text: 'Instant payouts (no minimum)', included: true },
+        { text: 'Enhanced demographics collection', included: true },
+        { text: 'Priority customer support', included: true },
+        { text: 'Demographic bonus multipliers', included: true },
+        { text: 'Professional insights surveys', included: true },
+        { text: 'Elite tier surveys', included: false },
+      ],
+      buttonText: user?.tier === 'pro' ? 'Current Plan' : 'Upgrade to Pro',
+      buttonColor: 'primary',
+      popular: true,
+    },
+    {
+      tier: 'elite',
+      name: 'Elite',
+      price: 199,
+      period: 'month',
+      description: 'Exclusive access to high-value executive surveys',
+      features: [
+        { text: '2-3 high-value surveys per week', included: true },
+        { text: '$200-1,500 per survey', included: true },
+        { text: 'Custom research projects', included: true },
+        { text: 'Dedicated account manager', included: true },
+        { text: 'Networking events access', included: true },
+        { text: 'Application process required', included: true },
+        { text: 'Income verification ($200K+)', included: true },
+        { text: 'LinkedIn integration required', included: true },
+      ],
+      buttonText: user?.tier === 'elite' ? 'Current Plan' : 'Apply for Elite',
+      buttonColor: 'secondary',
+    },
+  ];
+
+  useEffect(() => {
+    const fetchSubscriptionInfo = async () => {
+      try {
+        const response = await subscriptionApi.getSubscriptionInfo();
+        if (response.data) {
+          setSubscriptionInfo(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription info:', error);
+      }
+    };
+
+    fetchSubscriptionInfo();
+  }, []);
+
+  const handlePlanSelect = (plan: SubscriptionPlan) => {
+    if (plan.tier === user?.tier) return;
+    
+    setSelectedPlan(plan);
+    setIsDialogOpen(true);
+  };
+
+  const handleUpgrade = async () => {
+    if (!selectedPlan) return;
+
+    setIsLoading(true);
+    setMessage('');
+
+    try {
+      if (selectedPlan.tier === 'elite') {
+        // Elite tier requires application process
+        setMessage('Elite tier applications are currently being processed manually. Please contact support for more information.');
+      } else if (selectedPlan.tier === 'pro') {
+        const response = await subscriptionApi.createCheckoutSession('pro');
+        if (response.data?.sessionUrl) {
+          window.location.href = response.data.sessionUrl;
+        }
+      } else {
+        // Downgrade to basic
+        const confirmed = window.confirm('Are you sure you want to downgrade to the Basic plan? You will lose access to Pro features.');
+        if (confirmed) {
+          await subscriptionApi.cancelSubscription();
+          setMessage('Your subscription has been cancelled. You will retain Pro access until the end of your billing period.');
+        }
+      }
+    } catch (error: any) {
+      setMessage(error.response?.data?.error || 'Failed to process subscription change');
+    } finally {
+      setIsLoading(false);
+      setIsDialogOpen(false);
+    }
+  };
+
+  const getTierIcon = (tier: string) => {
+    switch (tier) {
+      case 'elite': return <Diamond />;
+      case 'pro': return <BusinessCenter />;
+      default: return <Star />;
+    }
+  };
+
+  const isCurrentPlan = (planTier: string) => {
+    return user?.tier === planTier;
+  };
+
+  const canUpgradeTo = (planTier: string) => {
+    const tierLevels = { basic: 1, pro: 2, elite: 3 };
+    const userLevel = tierLevels[user?.tier as keyof typeof tierLevels] || 1;
+    const planLevel = tierLevels[planTier as keyof typeof tierLevels] || 1;
+    return planLevel > userLevel;
+  };
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box textAlign="center" mb={6}>
+        <Typography variant="h3" component="h1" gutterBottom>
+          Choose Your Plan
+        </Typography>
+        <Typography variant="h6" color="text.secondary" paragraph>
+          Unlock higher earnings and exclusive features with our subscription tiers
+        </Typography>
+        
+        {user?.tier && (
+          <Chip
+            label={`Current: ${user.tier.charAt(0).toUpperCase() + user.tier.slice(1)} Tier`}
+            color="primary"
+            variant="outlined"
+            size="large"
+          />
+        )}
+      </Box>
+
+      {message && (
+        <Alert severity="info" sx={{ mb: 4 }}>
+          {message}
+        </Alert>
+      )}
+
+      <Grid container spacing={4} justifyContent="center">
+        {plans.map((plan) => (
+          <Grid item xs={12} md={4} key={plan.tier}>
+            <Card
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                border: isCurrentPlan(plan.tier) ? 2 : 1,
+                borderColor: isCurrentPlan(plan.tier) ? 'primary.main' : 'divider',
+                ...(plan.popular && {
+                  boxShadow: 4,
+                  transform: 'scale(1.05)',
+                }),
+              }}
+            >
+              {plan.popular && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -10,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1,
+                  }}
+                >
+                  <Chip
+                    label="Most Popular"
+                    color="secondary"
+                    size="small"
+                  />
+                </Box>
+              )}
+
+              <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                <Box textAlign="center" mb={3}>
+                  <Box mb={2}>
+                    {getTierIcon(plan.tier)}
+                  </Box>
+                  <Typography variant="h5" component="h2" gutterBottom>
+                    {plan.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    {plan.description}
+                  </Typography>
+                  <Box display="flex" alignItems="baseline" justifyContent="center">
+                    <Typography variant="h3" component="span">
+                      ${plan.price}
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ ml: 1 }}>
+                      /{plan.period}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <List dense>
+                  {plan.features.map((feature, index) => (
+                    <ListItem key={index} sx={{ px: 0 }}>
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        {feature.included ? (
+                          <Check color="success" fontSize="small" />
+                        ) : (
+                          <Cancel color="disabled" fontSize="small" />
+                        )}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={feature.text}
+                        primaryTypographyProps={{
+                          variant: 'body2',
+                          color: feature.included ? 'text.primary' : 'text.disabled',
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+
+              <Box p={3} pt={0}>
+                <Button
+                  fullWidth
+                  variant={isCurrentPlan(plan.tier) ? 'outlined' : 'contained'}
+                  color={plan.buttonColor}
+                  size="large"
+                  disabled={isCurrentPlan(plan.tier)}
+                  onClick={() => handlePlanSelect(plan)}
+                >
+                  {plan.buttonText}
+                </Button>
+              </Box>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Current Subscription Info */}
+      {subscriptionInfo && (
+        <Card sx={{ mt: 6 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Current Subscription Details
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" color="text.secondary">
+                  Plan
+                </Typography>
+                <Typography variant="body1">
+                  {subscriptionInfo.tier?.charAt(0).toUpperCase() + subscriptionInfo.tier?.slice(1)} Tier
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="body2" color="text.secondary">
+                  Status
+                </Typography>
+                <Chip
+                  label={subscriptionInfo.status}
+                  color={subscriptionInfo.status === 'active' ? 'success' : 'default'}
+                  size="small"
+                />
+              </Grid>
+              {subscriptionInfo.next_billing_date && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Next Billing Date
+                  </Typography>
+                  <Typography variant="body1">
+                    {new Date(subscriptionInfo.next_billing_date).toLocaleDateString()}
+                  </Typography>
+                </Grid>
+              )}
+              {subscriptionInfo.monthly_fee && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Monthly Fee
+                  </Typography>
+                  <Typography variant="body1">
+                    ${subscriptionInfo.monthly_fee}
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Confirmation Dialog */}
+      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Confirm Subscription Change
+        </DialogTitle>
+        <DialogContent>
+          {selectedPlan && (
+            <Box>
+              <Typography paragraph>
+                Are you sure you want to {canUpgradeTo(selectedPlan.tier) ? 'upgrade' : 'downgrade'} to the{' '}
+                <strong>{selectedPlan.name}</strong> plan?
+              </Typography>
+              
+              {selectedPlan.tier === 'elite' && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  Elite tier requires an application process including income verification and a video interview.
+                </Alert>
+              )}
+              
+              {selectedPlan.price > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  You will be charged ${selectedPlan.price} per {selectedPlan.period}.
+                </Typography>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpgrade}
+            variant="contained"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Processing...' : 'Confirm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+};
+
+export default Subscription;
