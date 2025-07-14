@@ -1,7 +1,14 @@
 import axios, { AxiosResponse } from 'axios';
 import { User, Survey, Call, ApiResponse, DashboardStats } from '../types';
+import { supabaseApi } from './supabaseApi';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+
+// Check if we should use Supabase API (outside of React component context)
+const shouldUseSupabase = () => {
+  return process.env.REACT_APP_SUPABASE_URL && 
+         process.env.REACT_APP_SUPABASE_URL !== 'your-supabase-project-url';
+};
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -69,6 +76,13 @@ export const authApi = {
 // User API
 export const userApi = {
   getDashboardStats: async (): Promise<ApiResponse<DashboardStats>> => {
+    if (shouldUseSupabase()) {
+      const result = await supabaseApi.user.getDashboardStats();
+      return {
+        data: result.data || undefined,
+        error: result.error
+      };
+    }
     const response: AxiosResponse<ApiResponse<DashboardStats>> = await api.get('/api/users/dashboard-stats');
     return response.data;
   },
@@ -87,6 +101,13 @@ export const userApi = {
 // Survey API
 export const surveyApi = {
   getAvailableSurveys: async (): Promise<ApiResponse<Survey[]>> => {
+    if (shouldUseSupabase()) {
+      const result = await supabaseApi.survey.getAvailableSurveys();
+      return {
+        data: result.data || undefined,
+        error: result.error
+      };
+    }
     const response: AxiosResponse<ApiResponse<Survey[]>> = await api.get('/api/surveys/available');
     return response.data;
   },

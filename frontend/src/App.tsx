@@ -6,7 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Setup from './pages/Setup';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard-working';
+import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Surveys from './pages/Surveys';
 import Subscription from './pages/Subscription';
