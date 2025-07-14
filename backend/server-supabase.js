@@ -380,8 +380,9 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// SMS onboarding webhook
-app.post('/webhook/sms', async (req, res) => {
+// SMS onboarding webhook - DISABLED: Now using Supabase phone auth signup
+// app.post('/webhook/sms', async (req, res) => {
+app.post('/webhook/sms-disabled', async (req, res) => {
   try {
     const { Body: message, From: phoneNumber } = req.body;
     

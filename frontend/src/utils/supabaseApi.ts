@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { User, Survey, DashboardStats } from '../types';
+import { User, Survey, DashboardStats, Call } from '../types';
 
 export const supabaseApi = {
   // Authentication
@@ -58,57 +58,6 @@ export const supabaseApi = {
     }
   },
 
-  // Users
-  user: {
-    async getDashboardStats(): Promise<{ data: DashboardStats | null, error: any }> {
-      try {
-        // Check if in demo mode
-        if (localStorage.getItem('demoMode') === 'true') {
-          return {
-            data: {
-              totalEarnings: 1247.50,
-              completedSurveys: 23,
-              availableOpportunities: 8,
-              qualityRating: 4.2,
-              monthlyEarnings: 325.00,
-              surveyCompletionRate: 87.5
-            },
-            error: null
-          };
-        }
-
-        // Real implementation with Supabase
-        const { data, error } = await supabase
-          .from('calls')
-          .select(`
-            earnings,
-            quality_scores,
-            status,
-            created_at
-          `)
-          .eq('status', 'completed');
-
-        if (error) throw error;
-
-        // Calculate stats from data
-        const totalEarnings = data?.reduce((sum, call) => sum + (call.earnings || 0), 0) || 0;
-        const completedSurveys = data?.length || 0;
-        
-        const stats: DashboardStats = {
-          totalEarnings,
-          completedSurveys,
-          availableOpportunities: 8, // TODO: Calculate from available surveys
-          qualityRating: 4.2, // TODO: Calculate from quality_scores
-          monthlyEarnings: 325.00, // TODO: Calculate current month
-          surveyCompletionRate: 87.5 // TODO: Calculate completion rate
-        };
-
-        return { data: stats, error: null };
-      } catch (error) {
-        return { data: null, error };
-      }
-    }
-  },
 
   // Surveys
   survey: {
@@ -218,6 +167,210 @@ export const supabaseApi = {
           table: 'surveys' 
         }, callback)
         .subscribe();
+    }
+  },
+
+  // User management
+  user: {
+    async getDashboardStats(): Promise<{ data: DashboardStats | null, error: any }> {
+      try {
+        // Check if in demo mode
+        if (localStorage.getItem('demoMode') === 'true') {
+          return {
+            data: {
+              totalEarnings: 1247.50,
+              completedSurveys: 23,
+              availableOpportunities: 8,
+              qualityRating: 4.2,
+              monthlyEarnings: 325.00,
+              surveyCompletionRate: 87.5
+            },
+            error: null
+          };
+        }
+
+        // Get current user
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        // Real implementation with Supabase
+        const { data, error } = await supabase
+          .from('calls')
+          .select(`
+            earnings,
+            quality_scores,
+            status,
+            created_at
+          `)
+          .eq('user_id', authUser.id)
+          .eq('status', 'completed');
+
+        if (error) throw error;
+
+        // Calculate stats from data
+        const totalEarnings = data?.reduce((sum, call) => sum + (call.earnings || 0), 0) || 0;
+        const completedSurveys = data?.length || 0;
+        
+        // Get available surveys count
+        const { data: availableSurveys, error: surveyError } = await supabase
+          .from('surveys')
+          .select('survey_id')
+          .eq('status', 'active');
+
+        if (surveyError) throw surveyError;
+
+        const stats: DashboardStats = {
+          totalEarnings,
+          completedSurveys,
+          availableOpportunities: availableSurveys?.length || 0,
+          qualityRating: 4.2, // TODO: Calculate from quality_scores
+          monthlyEarnings: 325.00, // TODO: Calculate current month
+          surveyCompletionRate: 87.5 // TODO: Calculate completion rate
+        };
+
+        return { data: stats, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+
+    async updateProfile(profileData: Partial<User>): Promise<{ data: User | null, error: any }> {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        const { data, error } = await supabase
+          .from('users')
+          .update(profileData)
+          .eq('user_id', authUser.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+
+    async getEarningsHistory(): Promise<{ data: Call[] | null, error: any }> {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        const { data, error } = await supabase
+          .from('calls')
+          .select(`
+            call_id,
+            user_id,
+            survey_id,
+            status,
+            responses,
+            earnings,
+            quality_scores,
+            completed_at,
+            created_at,
+            surveys(title)
+          `)
+          .eq('user_id', authUser.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return { data: data || [], error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    }
+  },
+
+  // Calls API
+  call: {
+    async getCallStatus(callId: string): Promise<{ data: Call | null, error: any }> {
+      try {
+        const { data, error } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('call_id', callId)
+          .single();
+
+        if (error) throw error;
+
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+
+    async getUserCalls(): Promise<{ data: Call[] | null, error: any }> {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        const { data, error } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return { data: data || [], error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    }
+  },
+
+  // Subscriptions API
+  subscription: {
+    async getSubscriptionInfo(): Promise<{ data: any | null, error: any }> {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        const { data, error } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
+
+        return { data: data || null, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+
+    async createCheckoutSession(tier: 'pro' | 'elite'): Promise<{ data: { sessionUrl: string } | null, error: any }> {
+      // This would integrate with Stripe - for now return placeholder
+      return { 
+        data: { sessionUrl: 'https://checkout.stripe.com/placeholder' }, 
+        error: null 
+      };
+    },
+
+    async cancelSubscription(): Promise<{ data: any | null, error: any }> {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        const { data, error } = await supabase
+          .from('subscriptions')
+          .update({ status: 'cancelled' })
+          .eq('user_id', authUser.id)
+          .eq('status', 'active');
+
+        if (error) throw error;
+
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
     }
   },
 

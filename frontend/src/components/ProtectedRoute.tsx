@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
-import { useAuth } from '../contexts/AuthContext';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   requiredTier 
 }) => {
-  const { user, token, isLoading } = useAuth();
+  const { user, token, isLoading } = useSupabaseAuth();
   const location = useLocation();
 
   if (isLoading) {

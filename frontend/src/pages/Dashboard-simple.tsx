@@ -8,11 +8,11 @@ import {
   Button,
   Chip,
 } from '@mui/material';
-import { useAuth } from '../contexts/AuthContext';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useSupabaseAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {

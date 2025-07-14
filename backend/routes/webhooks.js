@@ -5,8 +5,9 @@ const { inferUserCharacteristics } = require('../utils/featureInference');
 
 const router = express.Router();
 
-// SMS onboarding webhook
-router.post('/sms', async (req, res) => {
+// SMS onboarding webhook - DISABLED: Now using Supabase phone auth
+// router.post('/sms', async (req, res) => {
+router.post('/sms-disabled', async (req, res) => {
   try {
     const { Body: message, From: phoneNumber } = req.body;
     

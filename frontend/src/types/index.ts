@@ -77,6 +77,7 @@ export interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (token: string, user: User) => void;
+  loginWithSupabase?: (phoneNumber: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   loginDemo: () => void;
   logout: () => void;
   isLoading: boolean;

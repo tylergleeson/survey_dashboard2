@@ -23,13 +23,13 @@ import {
   Settings,
   MonetizationOn,
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useNavigate } from 'react-router-dom';
 import { userApi, surveyApi } from '../utils/api';
 import { DashboardStats, Survey } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useSupabaseAuth();
   const navigate = useNavigate();
   
   const [stats, setStats] = useState<DashboardStats | null>(null);

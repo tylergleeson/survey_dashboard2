@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, AuthContextType } from '../types';
-import { authApi } from '../utils/api';
+// import { authApi } from '../utils/api'; // DISABLED - Using Supabase Auth now
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -64,12 +64,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
           
-          // Verify token is still valid by fetching current user
-          const response = await authApi.getCurrentUser();
-          if (response.data?.user) {
-            setUser(response.data.user);
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-          }
+          // Legacy auth validation disabled - using Supabase Auth now
+          // const response = await authApi.getCurrentUser();
+          // if (response.data?.user) {
+          //   setUser(response.data.user);
+          //   localStorage.setItem('user', JSON.stringify(response.data.user));
+          // }
         } catch (error) {
           console.error('Token validation failed:', error);
           logout();
@@ -103,10 +103,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('user');
     localStorage.removeItem('demoMode');
     
-    // Call logout API (skip in demo mode)
-    if (localStorage.getItem('demoMode') !== 'true') {
-      authApi.logout().catch(console.error);
-    }
+    // Legacy logout API disabled - using Supabase Auth now
+    // if (localStorage.getItem('demoMode') !== 'true') {
+    //   authApi.logout().catch(console.error);
+    // }
   };
 
   const value: AuthContextType = {

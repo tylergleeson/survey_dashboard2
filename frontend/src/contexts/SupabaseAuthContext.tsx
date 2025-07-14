@@ -110,6 +110,40 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
     localStorage.setItem('user', JSON.stringify(newUser));
   };
 
+  const loginWithSupabase = async (phoneNumber: string, password: string): Promise<{ success: boolean; data?: any; error?: string }> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        phone: phoneNumber,
+        password: password
+      });
+
+      if (error) throw error;
+
+      if (data.user && data.session) {
+        setToken(data.session.access_token);
+        
+        // Fetch user profile from our users table
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        setUser(userProfile);
+        localStorage.setItem('authToken', data.session.access_token);
+        localStorage.setItem('user', JSON.stringify(userProfile));
+        
+        return { success: true, data: { token: data.session.access_token, user: userProfile } };
+      }
+      
+      return { success: false, error: 'Login failed' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
   const loginDemo = async () => {
     const response = await supabaseApi.auth.demoLogin();
     if (response.data) {
@@ -122,7 +156,7 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
   };
 
   const logout = async () => {
-    await supabaseApi.auth.logout();
+    await supabase.auth.signOut();
     setToken(null);
     setUser(null);
     localStorage.removeItem('authToken');
@@ -134,6 +168,7 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
     user,
     token,
     login,
+    loginWithSupabase,
     loginDemo,
     logout,
     isLoading,

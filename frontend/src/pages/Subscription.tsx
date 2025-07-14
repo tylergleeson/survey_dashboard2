@@ -1,11 +1,11 @@
 import React from 'react';
 import { Container, Typography, Card, CardContent, Button, Box, Chip } from '@mui/material';
 import { Star, BusinessCenter, Diamond } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Subscription: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useSupabaseAuth();
   const navigate = useNavigate();
 
   const plans = [

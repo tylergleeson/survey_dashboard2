@@ -13,13 +13,12 @@ import {
   Divider,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Phone } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import { authApi } from '../utils/api';
+import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginDemo } = useAuth();
+  const { loginWithSupabase, loginDemo } = useSupabaseAuth();
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -68,16 +67,20 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await authApi.login(`+1${cleanPhone}`, password);
-      
-      if (response.data) {
-        login(response.data.token, response.data.user);
-        navigate(from, { replace: true });
+      // Try Supabase authentication first
+      if (loginWithSupabase) {
+        const response = await loginWithSupabase(`+1${cleanPhone}`, password);
+        
+        if (response.success && response.data) {
+          navigate(from, { replace: true });
+        } else {
+          setError(response.error || 'Login failed. Please check your credentials.');
+        }
       } else {
-        setError(response.error || 'Login failed. Please try again.');
+        setError('Authentication system not available. Please try again.');
       }
     } catch (error: any) {
-      setError(error.response?.data?.error || 'Login failed. Please check your credentials.');
+      setError('Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -178,15 +181,15 @@ const Login: React.FC = () => {
           </Divider>
 
           <Box textAlign="center">
-            <Typography variant="body2" color="text.secondary" paragraph>
-              Don't have an account? Text your information to get started:
-            </Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-              Text "AGE OCCUPATION CITY" to {process.env.REACT_APP_TWILIO_PHONE || '(555) 123-4567'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Example: "28 Software Engineer Austin"
-            </Typography>
+            <Button
+              component={Link}
+              to="/signup"
+              variant="text"
+              color="primary"
+              size="large"
+            >
+              Create New Account
+            </Button>
           </Box>
         </Box>
       </Paper>

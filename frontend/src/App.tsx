@@ -2,10 +2,11 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AuthProvider } from './contexts/AuthContext';
+import { SupabaseAuthProvider } from './contexts/SupabaseAuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Setup from './pages/Setup';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Surveys from './pages/Surveys';
@@ -59,12 +60,13 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
+      <SupabaseAuthProvider>
         <Router>
           <div className="App">
             <Routes>
               <Route path="/setup" element={<Setup />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
               <Route 
                 path="/dashboard" 
                 element={
@@ -101,7 +103,7 @@ function App() {
             </Routes>
           </div>
         </Router>
-      </AuthProvider>
+      </SupabaseAuthProvider>
     </ThemeProvider>
   );
 }
