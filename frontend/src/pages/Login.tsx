@@ -24,9 +24,19 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
   const from = location.state?.from?.pathname || '/dashboard';
+
+  // Check for success message from password reset
+  React.useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the message from location state
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, navigate]);
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
@@ -112,6 +122,12 @@ const Login: React.FC = () => {
           </Alert>
         )}
 
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {successMessage}
+          </Alert>
+        )}
+
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
             fullWidth
@@ -162,6 +178,18 @@ const Login: React.FC = () => {
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
           </Button>
+
+          <Box textAlign="center" sx={{ mb: 2 }}>
+            <Button
+              component={Link}
+              to="/forgot-password"
+              variant="text"
+              size="small"
+              color="primary"
+            >
+              Forgot Password?
+            </Button>
+          </Box>
 
           <Button
             fullWidth

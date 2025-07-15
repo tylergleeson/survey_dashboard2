@@ -71,33 +71,9 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
           if (userProfile) {
             setUser(userProfile);
           } else {
-            // User exists in auth but not in users table - create profile
-            console.log('Creating missing user profile');
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            if (authUser && authUser.phone) {
-              const newUserProfile = {
-                user_id: authUser.id,
-                first_name: 'User', // Default name
-                phone_number: authUser.phone,
-                age: 25,
-                occupation: 'Not specified',
-                location: 'Not specified',
-                tier: 'basic' as const,
-                earnings: 0,
-                quality_score: 0,
-                subscription_status: 'inactive' as const,
-                created_at: new Date().toISOString(),
-                last_active: new Date().toISOString()
-              };
-              
-              const { error: insertError } = await supabase
-                .from('users')
-                .insert(newUserProfile);
-                
-              if (!insertError) {
-                setUser(newUserProfile);
-              }
-            }
+            // User exists in auth but not in users table - don't auto-create profile
+            console.log('User authenticated but profile incomplete - needs to complete signup');
+            setUser(null);
           }
         } catch (error) {
           console.error('Failed to fetch user profile:', error);
@@ -136,32 +112,9 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
             if (userProfile) {
               setUser(userProfile);
             } else {
-              // User exists in auth but not in users table - create profile
-              console.log('Creating missing user profile on sign in');
-              if (session.user && session.user.phone) {
-                const newUserProfile = {
-                  user_id: session.user.id,
-                  first_name: 'User', // Default name
-                  phone_number: session.user.phone,
-                  age: 25,
-                  occupation: 'Not specified',
-                  location: 'Not specified',
-                  tier: 'basic' as const,
-                  earnings: 0,
-                  quality_score: 0,
-                  subscription_status: 'inactive' as const,
-                  created_at: new Date().toISOString(),
-                  last_active: new Date().toISOString()
-                };
-                
-                const { error: insertError } = await supabase
-                  .from('users')
-                  .insert(newUserProfile);
-                  
-                if (!insertError) {
-                  setUser(newUserProfile);
-                }
-              }
+              // User exists in auth but not in users table - don't auto-create profile
+              console.log('User authenticated but profile incomplete - needs to complete signup');
+              setUser(null);
             }
           } catch (error) {
             console.error('Failed to fetch user profile:', error);

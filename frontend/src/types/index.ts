@@ -1,16 +1,21 @@
 export interface User {
   user_id: string;
   first_name?: string;
+  last_name?: string;
   phone_number: string;
+  password_hash?: string;
   age: number;
   occupation: string;
   location: string;
+  city?: string;
+  state?: string;
   tier: 'basic' | 'pro' | 'elite';
   earnings: number;
   quality_score: number;
   subscription_status: 'active' | 'inactive' | 'cancelled';
-  created_at: string;
-  last_active: string;
+  created_at?: string;
+  last_active?: string;
+  stripe_customer_id?: string;
   income_level?: string;
   education_level?: string;
   housing_situation?: string;
@@ -18,6 +23,16 @@ export interface User {
   tech_adoption?: string;
   political_leaning?: string;
   media_consumption?: string;
+  income_verified?: boolean;
+  education_credentials?: string;
+  work_experience?: string;
+  company_info?: any;
+  professional_certifications?: string[];
+  linkedin_profile?: string;
+  video_interview_completed?: boolean;
+  reference_checks_passed?: boolean;
+  leadership_role_verified?: boolean;
+  income_verification_documents?: string[];
 }
 
 export interface Survey {

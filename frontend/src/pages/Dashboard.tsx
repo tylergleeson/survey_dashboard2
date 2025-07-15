@@ -12,6 +12,10 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -24,18 +28,30 @@ import {
   MonetizationOn,
 } from '@mui/icons-material';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { userApi, surveyApi } from '../utils/api';
 import { DashboardStats, Survey } from '../types';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useSupabaseAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [availableSurveys, setAvailableSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  // Check if user should see welcome modal
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('welcome') === 'true') {
+      setShowWelcomeModal(true);
+      // Clear the URL parameter to prevent showing modal on refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -165,7 +181,7 @@ const Dashboard: React.FC = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Welcome back, {user?.first_name || 'User'}!
+            Welcome back, {user?.first_name || user?.phone_number?.slice(-4) || 'User'}!
           </Typography>
           <Box display="flex" alignItems="center" gap={2}>
             <Chip 
@@ -396,6 +412,55 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
       </Box>
+
+      {/* Welcome Modal */}
+      <Dialog
+        open={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="h2" gutterBottom>
+            🎉 Welcome to Survey Gig, {user?.first_name}!
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" paragraph>
+            Your account has been successfully created! You're now ready to start earning money by participating in voice surveys.
+          </Typography>
+          <Typography variant="body1" paragraph>
+            Here's what you can do:
+          </Typography>
+          <Box component="ul" sx={{ pl: 2 }}>
+            <Typography component="li" variant="body2" gutterBottom>
+              Browse available surveys in the "Surveys" section
+            </Typography>
+            <Typography component="li" variant="body2" gutterBottom>
+              Call our survey line to participate and earn money
+            </Typography>
+            <Typography component="li" variant="body2" gutterBottom>
+              Track your earnings and progress on this dashboard
+            </Typography>
+            <Typography component="li" variant="body2" gutterBottom>
+              Upgrade your tier for access to higher-paying opportunities
+            </Typography>
+          </Box>
+          <Typography variant="body1" sx={{ mt: 2, fontWeight: 'medium' }}>
+            Ready to get started? Check out the available surveys below!
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowWelcomeModal(false)}
+            variant="contained"
+            size="large"
+            fullWidth
+          >
+            Let's Get Started!
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

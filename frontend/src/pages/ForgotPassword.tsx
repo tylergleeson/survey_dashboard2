@@ -13,34 +13,23 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Divider,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Phone, Sms } from '@mui/icons-material';
+import { Visibility, VisibilityOff, Phone, Sms, ArrowBack } from '@mui/icons-material';
 import { supabase } from '../config/supabase';
-import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 
-const Signup: React.FC = () => {
+const ForgotPassword: React.FC = () => {
   const navigate = useNavigate();
-  const { user: contextUser } = useSupabaseAuth();
   
   // Step management
   const [activeStep, setActiveStep] = useState(0);
-  const steps = ['Phone Number', 'Verify Code', 'Create Password', 'Profile Info'];
+  const steps = ['Phone Number', 'Verify Code', 'New Password'];
   
   // Form data
   const [phoneNumber, setPhoneNumber] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
-  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
-  // Profile information
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [age, setAge] = useState('');
-  const [occupation, setOccupation] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
   
   // UI states
   const [error, setError] = useState('');
@@ -83,7 +72,7 @@ const Signup: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Check if phone number already exists in users table
+      // Check if phone number exists in users table
       const { data: existingUser, error: checkError } = await supabase
         .from('users')
         .select('phone_number')
@@ -91,19 +80,18 @@ const Signup: React.FC = () => {
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 means no rows returned, which is what we want for new users
         throw checkError;
       }
 
-      if (existingUser) {
-        setError('An account with this phone number already exists. Please log in instead.');
+      if (!existingUser) {
+        setError('No account found with this phone number. Please check your number or create a new account.');
         return;
       }
 
       const { error } = await supabase.auth.signInWithOtp({
         phone: `+1${cleanPhone}`,
         options: {
-          shouldCreateUser: true,
+          shouldCreateUser: false,
         }
       });
 
@@ -153,21 +141,21 @@ const Signup: React.FC = () => {
     }
   };
 
-  const handleCreatePassword = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!password || !confirmPassword) {
-      setError('Please enter and confirm your password.');
+    if (!newPassword || !confirmPassword) {
+      setError('Please enter and confirm your new password.');
       return;
     }
 
-    if (password.length < 8) {
+    if (newPassword.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
@@ -177,96 +165,19 @@ const Signup: React.FC = () => {
     try {
       // Update the user's password
       const { error } = await supabase.auth.updateUser({
-        password: password
+        password: newPassword
       });
 
       if (error) throw error;
 
-      // Move to profile information step
-      setActiveStep(3);
-      setError('');
+      // Success! Navigate to login with success message
+      navigate('/login', { 
+        state: { 
+          message: 'Password reset successfully! Please log in with your new password.' 
+        } 
+      });
     } catch (error: any) {
-      setError(error.message || 'Failed to create account. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!firstName || !lastName || !age || !occupation || !city || !state) {
-      setError('Please fill in all profile information.');
-      return;
-    }
-
-    const ageNum = parseInt(age);
-    if (isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
-      setError('Please enter a valid age between 13 and 120.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Create user profile in our users table
-      const cleanPhone = phoneNumber.replace(/\D/g, '');
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        // Check if user profile already exists
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (existingUser) {
-          // User profile exists, update it with new information
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({
-              first_name: firstName,
-              last_name: lastName,
-              age: parseInt(age),
-              occupation: occupation,
-              city: city,
-              state: state,
-              location: `${city}, ${state}`
-            })
-            .eq('user_id', user.id);
-
-          if (updateError) throw updateError;
-        } else {
-          // Create new user profile
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              user_id: user.id,
-              first_name: firstName,
-              last_name: lastName,
-              phone_number: `+1${cleanPhone}`,
-              password_hash: 'supabase_managed', // Required field in schema
-              age: parseInt(age),
-              occupation: occupation,
-              city: city,
-              state: state,
-              location: `${city}, ${state}`, // Combined location for compatibility
-              tier: 'basic',
-              earnings: 0.00,
-              quality_score: 0.00,
-              subscription_status: 'inactive'
-            });
-
-          if (insertError) throw insertError;
-        }
-      }
-
-      // Force a page reload to refresh auth context and trigger welcome modal
-      window.location.href = '/dashboard?welcome=true';
-    } catch (error: any) {
-      setError(error.message || 'Failed to create profile. Please try again.');
+      setError(error.message || 'Failed to reset password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -281,7 +192,7 @@ const Signup: React.FC = () => {
       const { error } = await supabase.auth.signInWithOtp({
         phone: `+1${cleanPhone}`,
         options: {
-          shouldCreateUser: true,
+          shouldCreateUser: false,
         }
       });
 
@@ -307,7 +218,7 @@ const Signup: React.FC = () => {
               Enter Your Phone Number
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
-              We'll send you a verification code to confirm your number
+              We'll send a verification code to reset your password
             </Typography>
 
             <TextField
@@ -317,7 +228,7 @@ const Signup: React.FC = () => {
               onChange={handlePhoneChange}
               margin="normal"
               required
-              placeholder="(123) 456-7890"
+              placeholder="(555) 123-4567"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -333,9 +244,9 @@ const Signup: React.FC = () => {
               variant="contained"
               size="large"
               disabled={isLoading}
-              sx={{ mt: 3 }}
+              sx={{ mt: 3, mb: 2 }}
             >
-              {isLoading ? 'Sending Code...' : 'Send Verification Code'}
+              {isLoading ? 'Sending...' : 'Send Verification Code'}
             </Button>
           </Box>
         );
@@ -347,18 +258,18 @@ const Signup: React.FC = () => {
               Enter Verification Code
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
-              We sent a 6-digit code to {phoneNumber}
+              Enter the 6-digit code sent to {phoneNumber}
             </Typography>
 
             <TextField
               fullWidth
               label="Verification Code"
               value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(e) => setVerificationCode(e.target.value)}
               margin="normal"
               required
-              placeholder="123456"
-              inputProps={{ maxLength: 6 }}
+              inputProps={{ maxLength: 6, style: { textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5rem' } }}
+              placeholder="000000"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -402,9 +313,9 @@ const Signup: React.FC = () => {
 
       case 2:
         return (
-          <Box component="form" onSubmit={handleCreatePassword}>
+          <Box component="form" onSubmit={handleResetPassword}>
             <Typography variant="h6" gutterBottom>
-              Create Your Password
+              Create New Password
             </Typography>
             <Typography variant="body2" color="text.secondary" paragraph>
               Choose a secure password for your account
@@ -412,10 +323,10 @@ const Signup: React.FC = () => {
 
             <TextField
               fullWidth
-              label="Password"
+              label="New Password"
               type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               margin="normal"
               required
               helperText="Must be at least 8 characters long"
@@ -437,7 +348,7 @@ const Signup: React.FC = () => {
 
             <TextField
               fullWidth
-              label="Confirm Password"
+              label="Confirm New Password"
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -452,97 +363,9 @@ const Signup: React.FC = () => {
               variant="contained"
               size="large"
               disabled={isLoading}
-              sx={{ mt: 3 }}
+              sx={{ mt: 3, mb: 2 }}
             >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
-            </Button>
-          </Box>
-        );
-
-      case 3:
-        return (
-          <Box component="form" onSubmit={handleCreateProfile}>
-            <Typography variant="h6" gutterBottom>
-              Complete Your Profile
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mb={3}>
-              Help us personalize your survey experience with some basic information.
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              margin="normal"
-              required
-              tabIndex={1}
-            />
-
-            <TextField
-              fullWidth
-              label="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              margin="normal"
-              required
-              tabIndex={2}
-            />
-
-            <TextField
-              fullWidth
-              label="Age"
-              type="number"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              margin="normal"
-              inputProps={{ min: 13, max: 120 }}
-              required
-              tabIndex={3}
-            />
-
-            <TextField
-              fullWidth
-              label="Occupation"
-              value={occupation}
-              onChange={(e) => setOccupation(e.target.value)}
-              margin="normal"
-              placeholder="e.g., Software Engineer, Teacher, Student"
-              required
-              tabIndex={4}
-            />
-
-            <Box display="flex" gap={2}>
-              <TextField
-                fullWidth
-                label="City"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                margin="normal"
-                required
-                tabIndex={5}
-              />
-              <TextField
-                fullWidth
-                label="State"
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                margin="normal"
-                placeholder="TX"
-                inputProps={{ maxLength: 2 }}
-                required
-                tabIndex={6}
-              />
-            </Box>
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3 }}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Creating Account...' : 'Complete Registration'}
+              {isLoading ? 'Resetting Password...' : 'Reset Password'}
             </Button>
           </Box>
         );
@@ -557,14 +380,14 @@ const Signup: React.FC = () => {
       <Paper elevation={3} sx={{ p: 4 }}>
         <Box textAlign="center" mb={4}>
           <Typography variant="h4" component="h1" gutterBottom color="primary">
-            Survey Gig
+            Reset Password
           </Typography>
           <Typography variant="h6" gutterBottom>
-            Create Your Account
+            Survey Gig
           </Typography>
         </Box>
 
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
           {steps.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
@@ -577,36 +400,21 @@ const Signup: React.FC = () => {
             severity={error.includes('sent!') ? 'success' : 'error'} 
             sx={{ mb: 3 }}
           >
-            {error.includes('already exists') ? (
-              <Box>
-                {error}
-                <br />
-                <Link to="/login" style={{ color: 'inherit', fontWeight: 'bold' }}>
-                  Click here to log in →
-                </Link>
-              </Box>
-            ) : (
-              error
-            )}
+            {error}
           </Alert>
         )}
 
         {renderStepContent()}
 
-        <Divider sx={{ my: 3 }}>
-          <Typography variant="body2" color="text.secondary">
-            Already have an account?
-          </Typography>
-        </Divider>
-
-        <Box textAlign="center">
+        <Box textAlign="center" mt={3}>
           <Button
             component={Link}
             to="/login"
             variant="text"
-            color="primary"
+            color="secondary"
+            startIcon={<ArrowBack />}
           >
-            Sign In Instead
+            Back to Login
           </Button>
         </Box>
       </Paper>
@@ -614,4 +422,4 @@ const Signup: React.FC = () => {
   );
 };
 
-export default Signup;
+export default ForgotPassword;
