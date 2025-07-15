@@ -17,6 +17,11 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem as SelectMenuItem,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -27,11 +32,14 @@ import {
   Logout,
   Settings,
   MonetizationOn,
+  Add,
+  Person,
 } from '@mui/icons-material';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { userApi, surveyApi } from '../utils/api';
-import { DashboardStats, Survey } from '../types';
+import { DashboardStats, Survey, UserAdditionalData } from '../types';
+import { supabase } from '../config/supabase';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useSupabaseAuth();
@@ -45,6 +53,9 @@ const Dashboard: React.FC = () => {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [showAdditionalDataModal, setShowAdditionalDataModal] = useState(false);
+  const [additionalData, setAdditionalData] = useState<Partial<UserAdditionalData>>({});
+  const [isLoadingAdditionalData, setIsLoadingAdditionalData] = useState(false);
 
   // Function to check for incomplete profile fields
   const checkProfileCompletion = (user: any) => {
@@ -194,6 +205,58 @@ const Dashboard: React.FC = () => {
     navigate('/login');
   };
 
+  const loadAdditionalData = async () => {
+    if (!user?.user_id) return;
+    
+    setIsLoadingAdditionalData(true);
+    try {
+      const { data, error } = await supabase
+        .from('users_additional_data')
+        .select('*')
+        .eq('user_id', user.user_id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading additional data:', error);
+      } else if (data) {
+        setAdditionalData(data);
+      }
+    } catch (error) {
+      console.error('Error loading additional data:', error);
+    } finally {
+      setIsLoadingAdditionalData(false);
+    }
+  };
+
+  const handleOpenAdditionalDataModal = () => {
+    setShowAdditionalDataModal(true);
+    loadAdditionalData();
+  };
+
+  const handleSaveAdditionalData = async () => {
+    if (!user?.user_id) return;
+
+    setIsLoadingAdditionalData(true);
+    try {
+      const { error } = await supabase
+        .from('users_additional_data')
+        .upsert({
+          user_id: user.user_id,
+          ...additionalData
+        });
+
+      if (error) throw error;
+
+      setShowAdditionalDataModal(false);
+      // Show success message or refresh data
+    } catch (error: any) {
+      console.error('Error saving additional data:', error);
+      // Show error message
+    } finally {
+      setIsLoadingAdditionalData(false);
+    }
+  };
+
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'elite': return 'secondary';
@@ -247,6 +310,9 @@ const Dashboard: React.FC = () => {
             <MenuItem onClick={() => navigate('/profile')}>
               <Settings sx={{ mr: 1 }} /> Profile
             </MenuItem>
+            <MenuItem onClick={handleOpenAdditionalDataModal}>
+              <Add sx={{ mr: 1 }} /> Additional Info
+            </MenuItem>
             <MenuItem onClick={() => navigate('/subscription')}>
               <TrendingUp sx={{ mr: 1 }} /> Subscription
             </MenuItem>
@@ -280,6 +346,31 @@ const Dashboard: React.FC = () => {
           </Typography>
         </Alert>
       )}
+
+      {/* Additional Information Card */}
+      <Card sx={{ mb: 4, border: '2px dashed', borderColor: 'primary.main', bgcolor: 'primary.50' }}>
+        <CardContent>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                <Add sx={{ mr: 1, verticalAlign: 'middle' }} />
+                Boost Your Earnings
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Share additional information to unlock higher-paying surveys and better opportunities
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={handleOpenAdditionalDataModal}
+              startIcon={<Person />}
+              size="large"
+            >
+              Add Details
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <Box 
@@ -570,6 +661,207 @@ const Dashboard: React.FC = () => {
             size="large"
           >
             Complete Profile
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Additional Data Modal */}
+      <Dialog
+        open={showAdditionalDataModal}
+        onClose={() => setShowAdditionalDataModal(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="h2" gutterBottom>
+            <Person sx={{ mr: 1, verticalAlign: 'middle' }} />
+            Additional Profile Information
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Providing additional information helps us match you with better survey opportunities and higher payouts.
+          </Typography>
+          
+          <Box sx={{ mt: 3 }}>
+            {/* Demographics */}
+            <Typography variant="h6" gutterBottom>Demographics</Typography>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Income Level</InputLabel>
+                  <Select
+                    value={additionalData.income_level || ''}
+                    onChange={(e) => setAdditionalData({...additionalData, income_level: e.target.value})}
+                    label="Income Level"
+                  >
+                    <SelectMenuItem value="under-25k">Under $25,000</SelectMenuItem>
+                    <SelectMenuItem value="25k-50k">$25,000 - $50,000</SelectMenuItem>
+                    <SelectMenuItem value="50k-75k">$50,000 - $75,000</SelectMenuItem>
+                    <SelectMenuItem value="75k-100k">$75,000 - $100,000</SelectMenuItem>
+                    <SelectMenuItem value="100k-150k">$100,000 - $150,000</SelectMenuItem>
+                    <SelectMenuItem value="150k-plus">$150,000+</SelectMenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Education Level</InputLabel>
+                  <Select
+                    value={additionalData.education_level || ''}
+                    onChange={(e) => setAdditionalData({...additionalData, education_level: e.target.value})}
+                    label="Education Level"
+                  >
+                    <SelectMenuItem value="high-school">High School</SelectMenuItem>
+                    <SelectMenuItem value="some-college">Some College</SelectMenuItem>
+                    <SelectMenuItem value="associates">Associate's Degree</SelectMenuItem>
+                    <SelectMenuItem value="bachelors">Bachelor's Degree</SelectMenuItem>
+                    <SelectMenuItem value="masters">Master's Degree</SelectMenuItem>
+                    <SelectMenuItem value="doctorate">Doctorate</SelectMenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Housing Situation</InputLabel>
+                  <Select
+                    value={additionalData.housing_situation || ''}
+                    onChange={(e) => setAdditionalData({...additionalData, housing_situation: e.target.value})}
+                    label="Housing Situation"
+                  >
+                    <SelectMenuItem value="owned-house">Own House</SelectMenuItem>
+                    <SelectMenuItem value="owned-condo">Own Condo/Townhouse</SelectMenuItem>
+                    <SelectMenuItem value="renting">Renting</SelectMenuItem>
+                    <SelectMenuItem value="living-with-family">Living with Family</SelectMenuItem>
+                    <SelectMenuItem value="other">Other</SelectMenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Family Status</InputLabel>
+                  <Select
+                    value={additionalData.family_status || ''}
+                    onChange={(e) => setAdditionalData({...additionalData, family_status: e.target.value})}
+                    label="Family Status"
+                  >
+                    <SelectMenuItem value="single">Single</SelectMenuItem>
+                    <SelectMenuItem value="married">Married</SelectMenuItem>
+                    <SelectMenuItem value="divorced">Divorced</SelectMenuItem>
+                    <SelectMenuItem value="widowed">Widowed</SelectMenuItem>
+                    <SelectMenuItem value="partnered">In a Partnership</SelectMenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+
+            {/* Preferences & Behavior */}
+            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Preferences & Behavior</Typography>
+
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Tech Adoption</InputLabel>
+                  <Select
+                    value={additionalData.tech_adoption || ''}
+                    onChange={(e) => setAdditionalData({...additionalData, tech_adoption: e.target.value})}
+                    label="Tech Adoption"
+                  >
+                    <SelectMenuItem value="early-adopter">Early Adopter</SelectMenuItem>
+                    <SelectMenuItem value="mainstream">Mainstream</SelectMenuItem>
+                    <SelectMenuItem value="conservative">Conservative</SelectMenuItem>
+                    <SelectMenuItem value="reluctant">Reluctant</SelectMenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ minWidth: 200, flex: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Political Leaning</InputLabel>
+                  <Select
+                    value={additionalData.political_leaning || ''}
+                    onChange={(e) => setAdditionalData({...additionalData, political_leaning: e.target.value})}
+                    label="Political Leaning"
+                  >
+                    <SelectMenuItem value="liberal">Liberal</SelectMenuItem>
+                    <SelectMenuItem value="moderate">Moderate</SelectMenuItem>
+                    <SelectMenuItem value="conservative">Conservative</SelectMenuItem>
+                    <SelectMenuItem value="prefer-not-to-say">Prefer not to say</SelectMenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+
+            <Box sx={{ mb: 3 }}>
+              <FormControl fullWidth>
+                <InputLabel>Media Consumption</InputLabel>
+                <Select
+                  value={additionalData.media_consumption || ''}
+                  onChange={(e) => setAdditionalData({...additionalData, media_consumption: e.target.value})}
+                  label="Media Consumption"
+                >
+                  <SelectMenuItem value="digital-first">Digital First</SelectMenuItem>
+                  <SelectMenuItem value="traditional-media">Traditional Media</SelectMenuItem>
+                  <SelectMenuItem value="social-media">Social Media Heavy</SelectMenuItem>
+                  <SelectMenuItem value="mixed">Mixed Sources</SelectMenuItem>
+                  <SelectMenuItem value="minimal">Minimal Media</SelectMenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Professional Information */}
+            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Professional Information</Typography>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="LinkedIn Profile URL"
+                value={additionalData.linkedin_profile || ''}
+                onChange={(e) => setAdditionalData({...additionalData, linkedin_profile: e.target.value})}
+                placeholder="https://linkedin.com/in/yourprofile"
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Work Experience"
+                value={additionalData.work_experience || ''}
+                onChange={(e) => setAdditionalData({...additionalData, work_experience: e.target.value})}
+                placeholder="Brief description of your work experience..."
+              />
+
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                label="Education Credentials"
+                value={additionalData.education_credentials || ''}
+                onChange={(e) => setAdditionalData({...additionalData, education_credentials: e.target.value})}
+                placeholder="Degrees, certifications, schools attended..."
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={() => setShowAdditionalDataModal(false)}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSaveAdditionalData}
+            variant="contained"
+            disabled={isLoadingAdditionalData}
+          >
+            {isLoadingAdditionalData ? 'Saving...' : 'Save Information'}
           </Button>
         </DialogActions>
       </Dialog>

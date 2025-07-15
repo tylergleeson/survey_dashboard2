@@ -491,7 +491,6 @@ const Signup: React.FC = () => {
               onChange={(e) => setFirstName(e.target.value)}
               margin="normal"
               required
-              tabIndex={1}
             />
 
             <TextField
@@ -501,7 +500,6 @@ const Signup: React.FC = () => {
               onChange={(e) => setLastName(e.target.value)}
               margin="normal"
               required
-              tabIndex={2}
             />
 
             <TextField
@@ -513,7 +511,6 @@ const Signup: React.FC = () => {
               margin="normal"
               inputProps={{ min: 13, max: 120 }}
               required
-              tabIndex={3}
             />
 
             <TextField
@@ -524,7 +521,6 @@ const Signup: React.FC = () => {
               margin="normal"
               placeholder="e.g., Software Engineer, Teacher, Student"
               required
-              tabIndex={4}
             />
 
             <Box display="flex" gap={2}>
@@ -535,7 +531,6 @@ const Signup: React.FC = () => {
                 onChange={(e) => setCity(e.target.value)}
                 margin="normal"
                 required
-                tabIndex={5}
               />
               <TextField
                 fullWidth
@@ -546,7 +541,6 @@ const Signup: React.FC = () => {
                 placeholder="TX"
                 inputProps={{ maxLength: 2 }}
                 required
-                tabIndex={6}
               />
             </Box>
 

@@ -17,6 +17,30 @@ export interface User {
   last_active?: string;
 }
 
+export interface UserAdditionalData {
+  user_id: string;
+  stripe_customer_id?: string;
+  income_level?: string;
+  education_level?: string;
+  housing_situation?: string;
+  family_status?: string;
+  tech_adoption?: string;
+  political_leaning?: string;
+  media_consumption?: string;
+  income_verified?: boolean;
+  video_interview_completed?: boolean;
+  reference_checks_passed?: boolean;
+  leadership_role_verified?: boolean;
+  education_credentials?: string;
+  work_experience?: string;
+  company_info?: any;
+  professional_certifications?: string[];
+  linkedin_profile?: string;
+  income_verification_documents?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Survey {
   survey_id: string;
   title: string;
