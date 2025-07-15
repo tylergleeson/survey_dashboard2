@@ -25,6 +25,7 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
   // Mock user data for development/demo
   const mockUser: User = {
     user_id: 'demo-user-123',
+    first_name: 'Alex',
     phone_number: '+1 (555) 123-4567',
     age: 28,
     occupation: 'Software Engineer',
@@ -62,11 +63,49 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
       
       if (session) {
         setToken(session.access_token);
-        // In a real app, you'd fetch user data from your users table
-        // For now, we'll use stored user data
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
+        // Clear demo mode since we have a real session
+        localStorage.removeItem('demoMode');
+        // Fetch real user data from Supabase users table
+        try {
+          const { data: userProfile } = await supabaseApi.user.getProfile();
+          if (userProfile) {
+            setUser(userProfile);
+          } else {
+            // User exists in auth but not in users table - create profile
+            console.log('Creating missing user profile');
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (authUser && authUser.phone) {
+              const newUserProfile = {
+                user_id: authUser.id,
+                first_name: 'User', // Default name
+                phone_number: authUser.phone,
+                age: 25,
+                occupation: 'Not specified',
+                location: 'Not specified',
+                tier: 'basic' as const,
+                earnings: 0,
+                quality_score: 0,
+                subscription_status: 'inactive' as const,
+                created_at: new Date().toISOString(),
+                last_active: new Date().toISOString()
+              };
+              
+              const { error: insertError } = await supabase
+                .from('users')
+                .insert(newUserProfile);
+                
+              if (!insertError) {
+                setUser(newUserProfile);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user profile:', error);
+          // Fall back to stored user data
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            setUser(JSON.parse(storedUser));
+          }
         }
       } else {
         // Check for legacy token system
@@ -89,7 +128,44 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           setToken(session.access_token);
-          // Fetch user data from your users table
+          // Clear demo mode since we have a real session
+          localStorage.removeItem('demoMode');
+          // Fetch real user data from Supabase users table
+          try {
+            const { data: userProfile } = await supabaseApi.user.getProfile();
+            if (userProfile) {
+              setUser(userProfile);
+            } else {
+              // User exists in auth but not in users table - create profile
+              console.log('Creating missing user profile on sign in');
+              if (session.user && session.user.phone) {
+                const newUserProfile = {
+                  user_id: session.user.id,
+                  first_name: 'User', // Default name
+                  phone_number: session.user.phone,
+                  age: 25,
+                  occupation: 'Not specified',
+                  location: 'Not specified',
+                  tier: 'basic' as const,
+                  earnings: 0,
+                  quality_score: 0,
+                  subscription_status: 'inactive' as const,
+                  created_at: new Date().toISOString(),
+                  last_active: new Date().toISOString()
+                };
+                
+                const { error: insertError } = await supabase
+                  .from('users')
+                  .insert(newUserProfile);
+                  
+                if (!insertError) {
+                  setUser(newUserProfile);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Failed to fetch user profile:', error);
+          }
         } else if (event === 'SIGNED_OUT') {
           setToken(null);
           setUser(null);

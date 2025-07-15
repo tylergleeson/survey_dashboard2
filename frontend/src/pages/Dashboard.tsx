@@ -39,8 +39,13 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      // Check if in demo mode
-      const isDemo = localStorage.getItem('demoMode') === 'true';
+      // Debug logging
+      console.log('Dashboard - Current user:', user);
+      console.log('Dashboard - localStorage demoMode:', localStorage.getItem('demoMode'));
+      
+      // Check if user has demo token (not a real Supabase session)
+      const isDemo = user?.user_id === 'demo-user-123';
+      console.log('Dashboard - isDemo:', isDemo);
       
       if (isDemo) {
         // Use mock data for demo
@@ -116,8 +121,10 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -158,7 +165,7 @@ const Dashboard: React.FC = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
-            Welcome back, {user?.phone_number?.slice(-4) || 'User'}!
+            Welcome back, {user?.first_name || 'User'}!
           </Typography>
           <Box display="flex" alignItems="center" gap={2}>
             <Chip 

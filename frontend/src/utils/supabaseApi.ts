@@ -63,8 +63,11 @@ export const supabaseApi = {
   survey: {
     async getAvailableSurveys(): Promise<{ data: Survey[] | null, error: any }> {
       try {
-        // Check if in demo mode
-        if (localStorage.getItem('demoMode') === 'true') {
+        // Get current user first to check if it's demo user
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        // Check if this is a demo user (no real auth session)  
+        if (!authUser) {
           const mockSurveys: Survey[] = [
             {
               survey_id: 'demo-1',
@@ -174,8 +177,14 @@ export const supabaseApi = {
   user: {
     async getDashboardStats(): Promise<{ data: DashboardStats | null, error: any }> {
       try {
-        // Check if in demo mode
-        if (localStorage.getItem('demoMode') === 'true') {
+        // Get current user first to check if it's demo user
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        console.log('SupabaseApi - authUser:', authUser);
+        console.log('SupabaseApi - demoMode:', localStorage.getItem('demoMode'));
+        
+        // Check if this is a demo user (no real auth session)
+        if (!authUser) {
+          console.log('SupabaseApi - No auth user, returning demo data');
           return {
             data: {
               totalEarnings: 1247.50,
@@ -189,10 +198,7 @@ export const supabaseApi = {
           };
         }
 
-        // Get current user
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (!authUser) throw new Error('User not authenticated');
-
+        console.log('SupabaseApi - Fetching real data from Supabase');
         // Real implementation with Supabase
         const { data, error } = await supabase
           .from('calls')
@@ -211,6 +217,23 @@ export const supabaseApi = {
         const totalEarnings = data?.reduce((sum, call) => sum + (call.earnings || 0), 0) || 0;
         const completedSurveys = data?.length || 0;
         
+        // Calculate quality rating from actual quality scores
+        const qualityScores = data?.map(call => call.quality_scores).filter(Boolean) || [];
+        const avgQualityRating = qualityScores.length > 0 
+          ? qualityScores.reduce((sum, scores: any) => {
+              const avgScore = (scores.richness + scores.emotion + scores.insight + scores.clarity) / 4;
+              return sum + avgScore;
+            }, 0) / qualityScores.length
+          : 0;
+
+        // Calculate monthly earnings (current month)
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const monthlyEarnings = data?.filter(call => {
+          const callDate = new Date(call.created_at);
+          return callDate.getMonth() === currentMonth && callDate.getFullYear() === currentYear;
+        }).reduce((sum, call) => sum + (call.earnings || 0), 0) || 0;
+
         // Get available surveys count
         const { data: availableSurveys, error: surveyError } = await supabase
           .from('surveys')
@@ -219,16 +242,44 @@ export const supabaseApi = {
 
         if (surveyError) throw surveyError;
 
+        // Calculate completion rate (completed vs total calls)
+        const { data: allCalls, error: allCallsError } = await supabase
+          .from('calls')
+          .select('status')
+          .eq('user_id', authUser.id);
+
+        const totalCalls = allCalls?.length || 0;
+        const surveyCompletionRate = totalCalls > 0 ? (completedSurveys / totalCalls) * 100 : 0;
+
         const stats: DashboardStats = {
           totalEarnings,
           completedSurveys,
           availableOpportunities: availableSurveys?.length || 0,
-          qualityRating: 4.2, // TODO: Calculate from quality_scores
-          monthlyEarnings: 325.00, // TODO: Calculate current month
-          surveyCompletionRate: 87.5 // TODO: Calculate completion rate
+          qualityRating: avgQualityRating,
+          monthlyEarnings,
+          surveyCompletionRate
         };
 
         return { data: stats, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+
+    async getProfile(): Promise<{ data: User | null, error: any }> {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('User not authenticated');
+
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .single();
+
+        if (error) throw error;
+
+        return { data, error: null };
       } catch (error) {
         return { data: null, error };
       }
