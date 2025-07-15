@@ -79,17 +79,22 @@ const Login: React.FC = () => {
     try {
       // Try Supabase authentication first
       if (loginWithSupabase) {
+        console.log('Calling loginWithSupabase...');
         const response = await loginWithSupabase(`+1${cleanPhone}`, password);
+        console.log('Login response:', response);
         
         if (response.success && response.data) {
+          console.log('Login successful, navigating to:', from);
           navigate(from, { replace: true });
         } else {
+          console.error('Login failed:', response.error);
           setError(response.error || 'Login failed. Please check your credentials.');
         }
       } else {
         setError('Authentication system not available. Please try again.');
       }
     } catch (error: any) {
+      console.error('Login exception:', error);
       setError('Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);

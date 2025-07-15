@@ -214,15 +214,18 @@ const Signup: React.FC = () => {
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       const { data: { user } } = await supabase.auth.getUser();
       
+      console.log('Current auth user:', user);
+      
       if (user) {
         // Check if user profile already exists
-        const { data: existingUser } = await supabase
+        const { data: existingUsers, error: checkError } = await supabase
           .from('users')
           .select('user_id')
-          .eq('user_id', user.id)
-          .single();
+          .eq('user_id', user.id);
+          
+        console.log('Existing user check:', { existingUsers, checkError });
 
-        if (existingUser) {
+        if (existingUsers && existingUsers.length > 0) {
           // User profile exists, update it with new information
           const { error: updateError } = await supabase
             .from('users')
@@ -237,9 +240,14 @@ const Signup: React.FC = () => {
             })
             .eq('user_id', user.id);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Update error:', updateError);
+            throw updateError;
+          }
+          console.log('Profile updated successfully');
         } else {
           // Create new user profile
+          console.log('Creating new user profile...');
           const { error: insertError } = await supabase
             .from('users')
             .insert({
@@ -259,15 +267,22 @@ const Signup: React.FC = () => {
               subscription_status: 'inactive'
             });
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error('Insert error:', insertError);
+            throw insertError;
+          }
+          console.log('Profile created successfully');
         }
+      } else {
+        throw new Error('No authenticated user found');
       }
 
+      console.log('Redirecting to dashboard...');
       // Force a page reload to refresh auth context and trigger welcome modal
       window.location.href = '/dashboard?welcome=true';
     } catch (error: any) {
+      console.error('Profile creation error:', error);
       setError(error.message || 'Failed to create profile. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };

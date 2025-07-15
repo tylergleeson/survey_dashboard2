@@ -9,22 +9,19 @@ export const supabaseApi = {
       const mockUser: User = {
         user_id: 'demo-user-123',
         phone_number: '+1 (555) 123-4567',
+        first_name: 'Alex',
+        last_name: 'Demo',
         age: 28,
         occupation: 'Software Engineer',
-        location: 'Austin',
+        city: 'Austin',
+        state: 'TX',
+        location: 'Austin, TX',
         tier: 'pro',
         earnings: 1247.50,
         quality_score: 4.2,
         subscription_status: 'active',
         created_at: '2024-01-15T10:30:00Z',
-        last_active: new Date().toISOString(),
-        income_level: 'upper-middle',
-        education_level: 'bachelors',
-        housing_situation: 'owned-condo',
-        family_status: 'single-dating',
-        tech_adoption: 'early-adopter',
-        political_leaning: 'moderate',
-        media_consumption: 'digital-first'
+        last_active: new Date().toISOString()
       };
 
       return {

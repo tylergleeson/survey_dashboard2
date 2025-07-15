@@ -25,24 +25,20 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
   // Mock user data for development/demo
   const mockUser: User = {
     user_id: 'demo-user-123',
-    first_name: 'Alex',
     phone_number: '+1 (555) 123-4567',
+    first_name: 'Alex',
+    last_name: 'Demo',
     age: 28,
     occupation: 'Software Engineer',
-    location: 'Austin',
+    city: 'Austin',
+    state: 'TX',
+    location: 'Austin, TX',
     tier: 'pro',
     earnings: 1247.50,
     quality_score: 4.2,
     subscription_status: 'active',
     created_at: '2024-01-15T10:30:00Z',
-    last_active: new Date().toISOString(),
-    income_level: 'upper-middle',
-    education_level: 'bachelors',
-    housing_situation: 'owned-condo',
-    family_status: 'single-dating',
-    tech_adoption: 'early-adopter',
-    political_leaning: 'moderate',
-    media_consumption: 'digital-first'
+    last_active: new Date().toISOString()
   };
 
   useEffect(() => {
@@ -141,10 +137,14 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
 
   const loginWithSupabase = async (phoneNumber: string, password: string): Promise<{ success: boolean; data?: any; error?: string }> => {
     try {
+      console.log('Attempting login with phone:', phoneNumber);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         phone: phoneNumber,
         password: password
       });
+
+      console.log('Auth response:', { data, error });
 
       if (error) throw error;
 
@@ -152,13 +152,47 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
         setToken(data.session.access_token);
         
         // Fetch user profile from our users table
-        const { data: userProfile, error: profileError } = await supabase
+        const { data: userProfiles, error: profileError } = await supabase
           .from('users')
           .select('*')
-          .eq('user_id', data.user.id)
-          .single();
+          .eq('user_id', data.user.id);
 
-        if (profileError) throw profileError;
+        console.log('User profile fetch:', { userProfiles, profileError });
+
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          // Don't throw - create basic profile if missing
+        }
+
+        let userProfile = userProfiles && userProfiles.length > 0 ? userProfiles[0] : null;
+
+        if (!userProfile) {
+          console.log('No user profile found, creating basic profile...');
+          // Create a basic profile if it doesn't exist
+          const { data: newProfile, error: createError } = await supabase
+            .from('users')
+            .insert({
+              user_id: data.user.id,
+              phone_number: phoneNumber,
+              password_hash: 'supabase_managed',
+              age: 18,
+              occupation: 'Not specified',
+              location: 'Not specified',
+              tier: 'basic',
+              earnings: 0.00,
+              quality_score: 0.00,
+              subscription_status: 'inactive'
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Failed to create profile:', createError);
+            throw createError;
+          }
+          
+          userProfile = newProfile;
+        }
 
         setUser(userProfile);
         localStorage.setItem('authToken', data.session.access_token);
@@ -169,6 +203,7 @@ export const SupabaseAuthProvider: React.FC<SupabaseAuthProviderProps> = ({ chil
       
       return { success: false, error: 'Login failed' };
     } catch (error: any) {
+      console.error('Login error:', error);
       return { success: false, error: error.message };
     }
   };

@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
 } from '@mui/material';
 import {
   AccountCircle,
@@ -42,6 +43,44 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+
+  // Function to check for incomplete profile fields
+  const checkProfileCompletion = (user: any) => {
+    if (!user) return { isComplete: true, missing: [] };
+
+    const requiredFields = [
+      { key: 'first_name', label: 'First Name' },
+      { key: 'last_name', label: 'Last Name' },
+      { key: 'age', label: 'Age' },
+      { key: 'occupation', label: 'Occupation' },
+      { key: 'city', label: 'City' },
+      { key: 'state', label: 'State' },
+    ];
+
+    const missing = requiredFields.filter(field => 
+      !user[field.key] || 
+      (typeof user[field.key] === 'string' && user[field.key].trim() === '') ||
+      user[field.key] === 'Not specified'
+    ).map(field => field.label);
+
+    return {
+      isComplete: missing.length === 0,
+      missing
+    };
+  };
+
+  // Check profile completion when user data loads
+  useEffect(() => {
+    if (user && !showWelcomeModal) {
+      const { isComplete, missing } = checkProfileCompletion(user);
+      if (!isComplete) {
+        setMissingFields(missing);
+        setShowProfileCompletion(true);
+      }
+    }
+  }, [user, showWelcomeModal]);
 
   // Check if user should see welcome modal
   useEffect(() => {
@@ -217,6 +256,30 @@ const Dashboard: React.FC = () => {
           </Menu>
         </Box>
       </Box>
+
+      {/* Profile Completion Banner */}
+      {missingFields.length > 0 && !showWelcomeModal && !showProfileCompletion && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 4 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={() => navigate('/profile')}
+              variant="outlined"
+            >
+              Complete Now
+            </Button>
+          }
+        >
+          <Typography variant="body2">
+            <strong>Complete your profile to unlock better survey opportunities!</strong>
+            <br />
+            Missing: {missingFields.join(', ')}
+          </Typography>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Box 
@@ -458,6 +521,55 @@ const Dashboard: React.FC = () => {
             fullWidth
           >
             Let's Get Started!
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Profile Completion Modal */}
+      <Dialog
+        open={showProfileCompletion}
+        onClose={() => setShowProfileCompletion(false)}
+        maxWidth="sm"
+        fullWidth
+        disableEscapeKeyDown
+      >
+        <DialogTitle>
+          <Typography variant="h5" component="h2" gutterBottom>
+            📝 Complete Your Profile
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" paragraph>
+            To ensure you receive the most relevant survey opportunities, please complete the missing information in your profile.
+          </Typography>
+          <Typography variant="body1" paragraph>
+            <strong>Missing information:</strong>
+          </Typography>
+          <Box component="ul" sx={{ pl: 2, mb: 2 }}>
+            {missingFields.map((field, index) => (
+              <Typography key={index} component="li" variant="body2" gutterBottom>
+                {field}
+              </Typography>
+            ))}
+          </Box>
+          <Typography variant="body2" color="text.secondary">
+            Completing your profile helps us match you with surveys that pay better and are more relevant to your background.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button
+            onClick={() => setShowProfileCompletion(false)}
+            variant="outlined"
+            sx={{ mr: 1 }}
+          >
+            Skip for Now
+          </Button>
+          <Button
+            onClick={() => navigate('/profile')}
+            variant="contained"
+            size="large"
+          >
+            Complete Profile
           </Button>
         </DialogActions>
       </Dialog>
