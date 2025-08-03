@@ -34,6 +34,9 @@ import {
   MonetizationOn,
   Add,
   Person,
+  PlayArrow,
+  Stop,
+  PowerSettingsNew,
 } from '@mui/icons-material';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -56,6 +59,7 @@ const Dashboard: React.FC = () => {
   const [showAdditionalDataModal, setShowAdditionalDataModal] = useState(false);
   const [additionalData, setAdditionalData] = useState<Partial<UserAdditionalData>>({});
   const [isLoadingAdditionalData, setIsLoadingAdditionalData] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
 
   // Function to check for incomplete profile fields
   const checkProfileCompletion = (user: any) => {
@@ -168,17 +172,20 @@ const Dashboard: React.FC = () => {
       }
 
       try {
-        const [statsResponse, surveysResponse] = await Promise.all([
-          userApi.getDashboardStats(),
-          surveyApi.getAvailableSurveys()
-        ]);
-
+        // Always fetch stats
+        const statsResponse = await userApi.getDashboardStats();
         if (statsResponse.data) {
           setStats(statsResponse.data);
         }
 
-        if (surveysResponse.data) {
-          setAvailableSurveys(surveysResponse.data.slice(0, 3)); // Show top 3
+        // Only fetch surveys if user is online
+        if (isOnline) {
+          const surveysResponse = await surveyApi.getAvailableSurveys();
+          if (surveysResponse.data) {
+            setAvailableSurveys(surveysResponse.data.slice(0, 3)); // Show top 3
+          }
+        } else {
+          setAvailableSurveys([]); // Clear surveys when offline
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
@@ -190,7 +197,7 @@ const Dashboard: React.FC = () => {
     if (user) {
       fetchDashboardData();
     }
-  }, [user]);
+  }, [user, isOnline]);
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -257,6 +264,10 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleToggleOnline = () => {
+    setIsOnline(!isOnline);
+  };
+
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'elite': return 'secondary';
@@ -296,7 +307,29 @@ const Dashboard: React.FC = () => {
             </Typography>
           </Box>
         </Box>
-        <Box>
+        <Box display="flex" alignItems="center" gap={2}>
+          {/* Online/Offline Toggle */}
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography variant="body2" color="text.secondary">
+              {isOnline ? 'Online' : 'Offline'}
+            </Typography>
+            <IconButton
+              onClick={handleToggleOnline}
+              sx={{
+                width: 56,
+                height: 56,
+                backgroundColor: isOnline ? 'success.main' : 'grey.300',
+                color: isOnline ? 'white' : 'grey.600',
+                '&:hover': {
+                  backgroundColor: isOnline ? 'success.dark' : 'grey.400',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {isOnline ? <Stop /> : <PlayArrow />}
+            </IconButton>
+          </Box>
+          
           <IconButton onClick={handleProfileMenuOpen} size="large">
             <Avatar>
               <AccountCircle />
@@ -453,9 +486,27 @@ const Dashboard: React.FC = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Top Available Surveys
+              {isOnline ? 'Top Available Surveys' : 'Survey Opportunities'}
             </Typography>
-            {availableSurveys.length === 0 ? (
+            {!isOnline ? (
+              <Box textAlign="center" py={4}>
+                <PowerSettingsNew sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  You're Currently Offline
+                </Typography>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  Go online to see available survey opportunities and start earning!
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<PlayArrow />}
+                  onClick={handleToggleOnline}
+                  size="large"
+                >
+                  Go Online
+                </Button>
+              </Box>
+            ) : availableSurveys.length === 0 ? (
               <Typography color="text.secondary">
                 No surveys available at the moment. Check back later!
               </Typography>
